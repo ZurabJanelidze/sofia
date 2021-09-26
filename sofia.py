@@ -55,7 +55,7 @@ class prop:
     _cl='╚'         #                                                           #
     _sal='■'        #    <-This is used to mark a single-line assumption block  #
                     ############################################################# 
-    _im=':'        # Symbols for implication, left and right bracket    #
+    _im=':'         # Symbols for implication, left and right bracket    #
     _lb='['         #    Note: they must be distinct single characters  #
     _rb=']'         #########################################################################
     _sp='$'         # A researved meaningless symbol                                        #
@@ -115,6 +115,9 @@ class prop:
 
     def getstatement(self):
         if self._proptype=='Axiom':
+            print('')
+            print('Axiom: '+self._nam+'.')
+            print(self._propsta)
             return self._propsta
         elif self.QED():
             return self._propsta
@@ -283,14 +286,18 @@ class prop:
         return self._curlin
     ####### Deduction step: SELFEQUATE #######################################
     # In this deduction step a line is equated to itself.                    #
+    #   - lineno and ref: position of the statement to be equated to itself  #
     ##########################################################################
-    def selfequate(self,lineno=-1):
+    def selfequate(self,lineno=-1,ref=-1):
         # The following makes lineno argument optional - default value being current line
         if lineno==-1:
             lineno=self._curlin
-        
-        self._rea.append('self-equate L'+str(lineno))    # Add reasoning for the line
-        
+        # The following makes position reference optional
+        if ref==-1:
+            ref=1
+            self._rea.append('self-equate L'+str(lineno))    # Add reasoning for the line
+        else:
+            self._rea.append('self-equate from L'+str(lineno)+'('+str(ref)+')')    # Add reasoning for the line
         # Check if the line reference is valid and return errors if not
         if self._curlin==0:
             self._err.append(self._err5+str(self._curlin+1))
@@ -312,7 +319,12 @@ class prop:
         if lineno>self._curlin-1 or lineno<1:
             self._lin.append(self._lb+self._rb)
         else:
-            self._lin.append(self._cleanupline(self._lb+self._lin[lineno-1]+self._eq+self._lin[lineno-1]+self._rb,self._curlin))
+            s=self._extractstat(self._lin[lineno-1])
+            if ref<len(s)+1 and 0<ref:
+                self._lin.append(self._lb+s[ref-1]+self._eq+s[ref-1]+self._rb)
+            else:
+                self._err.append(self._err21+str(self._curlin))
+                self._lin.append(self._lb+self._rb)
         # Return new line index
         return self._curlin    
     ####### Deduction step: SYNAPSIS ############################################################
@@ -513,20 +525,28 @@ class prop:
     #   -lineno: the line in which the substitution needs to take place.                                #
     #   -instanct: the list of positions where the substitution should take place.                      #
     ##################################################################################################### 
-    def lsub(self,eqline=-1,lineno=-1,instance=[]):
+    def lsub(self,eqline=-1,lineno=-1,instance=[],eqlinref=-1,linref=-1):
         if eqline==-1:
             eqline=self._curlin-1
         if lineno==-1:
             lineno=self._curlin
+        if eqlinref==-1:
+            eqlinref=1
+        if linref==-1:
+            linref=1
         noequality=False
         line=self._lb+self._rb
         eqLHS=''
         eqRHS=''
         # Add reasoning for the line
-        self._rea.append('left substitution (L'+str(eqline)+'/'+str(lineno)+')') 
+        self._rea.append('left substitution, L'+str(eqline)+'('+str(eqlinref)+') in L'+str(lineno)+'('+str(linref)+')') 
 
         if eqline>0 and eqline<len(self._lin)+1:
-            D=self._decomposestat(self._lin[eqline-1])
+            s=self._extractstat(self._lin[eqline-1])
+            if eqlinref<len(s)+1 and 0<eqlinref:
+                D=self._decomposestat(s[eqlinref-1])
+            else:
+                D=[]
             if D[0]!=['',self._eq]:
                 noequality=True
                 self._err.append(self._err17+str(self._curlin+1))
@@ -547,7 +567,11 @@ class prop:
         if lineno<1 or lineno>len(self._lin):
             self._err.append(self._err3+str(self._curlin+1))
         else:
-            line=self._lin[lineno-1]
+            t=self._extractstat(self._lin[lineno-1])
+            if linref<len(t)+1 and 0<linref:
+                line=t[linref-1]
+            else:
+                line=self._lb+self._rb
             if eqline<1 or eqline>len(self._lin):
                 self._err.append(self._err3+str(self._curlin+1))
         if self._logdep(lineno-1,self._curlin-1)==False:
@@ -575,20 +599,28 @@ class prop:
         # Return new line index
         return self._curlin
 
-    def rsub(self,eqline=-1,lineno=-1,instance=[]):
+    def rsub(self,eqline=-1,lineno=-1,instance=[],eqlinref=-1,linref=-1):
         if eqline==-1:
             eqline=self._curlin-1
         if lineno==-1:
             lineno=self._curlin
+        if eqlinref==-1:
+            eqlinref=1
+        if linref==-1:
+            linref=1
         noequality=False
         line=self._lb+self._rb
         eqLHS=''
         eqRHS=''
         # Add reasoning for the line
-        self._rea.append('right substitution (L'+str(eqline)+'/'+str(lineno)+')') 
+        self._rea.append('right substitution, L'+str(eqline)+'('+str(eqlinref)+') in L'+str(lineno)+'('+str(linref)+')') 
 
         if eqline>0 and eqline<len(self._lin)+1:
-            D=self._decomposestat(self._lin[eqline-1])
+            s=self._extractstat(self._lin[eqline-1])
+            if eqlinref<len(s)+1 and 0<eqlinref:
+                D=self._decomposestat(s[eqlinref-1])
+            else:
+                D=[]
             if D[0]!=['',self._eq]:
                 noequality=True
                 self._err.append(self._err17+str(self._curlin+1))
@@ -609,7 +641,11 @@ class prop:
         if lineno<1 or lineno>len(self._lin):
             self._err.append(self._err3+str(self._curlin+1))
         else:
-            line=self._lin[lineno-1]
+            t=self._extractstat(self._lin[lineno-1])
+            if linref<len(t)+1 and 0<linref:
+                line=t[linref-1]
+            else:
+                line=self._lb+self._rb
             if eqline<1 or eqline>len(self._lin):
                 self._err.append(self._err3+str(self._curlin+1))
         if self._logdep(lineno-1,self._curlin-1)==False:
