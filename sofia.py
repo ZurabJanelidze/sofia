@@ -190,7 +190,77 @@ class prop:
 
         # Return new line index
         return self._curlin
-    
+    ####### Deduction step: REST #################################################################
+    # An upgrade of RESTATE allowing combination of multiple statements                             #
+    #   -lineno: line where the the statement to be restated lies.                                  #
+    #   -ref: position of the statement to be restated on the given line.                           #
+    #   -newvars: new variables to be used as a replacement of noncontextual reserved variables.    #
+    #################################################################################################
+    def rest(self,instance=[],newvars=[]):
+        # The following makes lineno argument optional - default value being current line
+        new=''
+        reason=''
+        for e in instance:
+            if len(e)==2:
+                lineno=e[0]
+                ref=e[1]
+                if lineno==-1:
+                    lineno=self._curlin
+                if lineno!=0:
+                    reason=reason+' '+str(lineno)    # Add reasoning for the line
+                # Check if the line reference is valid and return errors if not
+                if self._curlin==0:
+                    self._err.append(self._err5+str(self._curlin+1))
+                elif lineno<0 or lineno>len(self._lin):
+                    self._err.append(self._err3+str(self._curlin+1))
+                elif lineno!=0 and self._logdep(lineno-1,self._curlin-1)==False:
+                    self._err.append(self._err7+str(self._curlin+1))    
+                # Add a line to the proof
+                if lineno>self._curlin or lineno==0:
+                    new=new+''
+                else:
+                    s=self._extractstat(self._lin[lineno-1])
+                    if ref<len(s)+1 and ref>0:
+                        newline=s[ref-1]
+                    elif ref!=-1:
+                        ref=-1
+                        new=new+''                
+                    else:
+                        newline=self._lin[lineno-1]
+                    if newvars!=[]:
+                        nlcontvars=self._statcontext(newline)
+                        contextvars=self._cont(self._curlin)
+                        nlvars=self._vars(newline)
+                        noncontnewvars=[]
+                        for x in newvars:
+                            if x not in contextvars and x not in nlvars:
+                                noncontnewvars.append(x)
+                        if len(noncontnewvars)!=len(newvars):
+                            self._err.append(self._err23+str(self._curlin+1))
+                        nlreplvars=[]
+                        for i in range(0,len(nlvars)):
+                            if nlvars[i] not in contextvars and nlvars[i] not in nlcontvars:
+                                nlreplvars.append(nlvars[i])
+                        for i in range(0,len(nlreplvars)):
+                            if i<len(newvars):
+                                newline=newline.replace(self._lb+nlreplvars[i]+self._rb,self._lb+newvars[i]+self._rb)
+                            else:
+                                i=len(nlreplvars)
+                    new=new+newline                    
+        # Set assumption depth of the new line   
+        if self._curlin==0:
+            self._assdep.append(0)
+        else:
+            self._assdep.append(self._assdep[self._curlin-1])
+        if reason=='':
+            self._rea.append('empty formula stated')
+            new=self._lb+self._rb
+        else:
+            self._rea.append('restatement (see lines'+reason+')')    # Add reasoning for the line
+        self._lin.append(new)
+        self._curlin=self._curlin+1
+        # Return new line index
+        return self._curlin    
     ####### Deduction step: RESTATE #################################################################
     # With this deduction step a previously stated statement can be restated.                       #
     #   -lineno: line where the the statement to be restated lies.                                  #
@@ -502,7 +572,7 @@ class prop:
                                 possib=False
                             j=j+1        
                 if possib:
-                    r=self._cleanupline(self._revisestat(self._cont(self._curlin-1),self._noncont(self._curlin-1),inferfrom[len(inferfrom)-1]),self._curlin)
+                    r=self._revisestat(self._cont(self._curlin-1),self._noncont(self._curlin-1),inferfrom[len(inferfrom)-1])
                     self._lin.append(r)
                 else:
                     self._lin.append(self._cleanupline(l,self._curlin))
@@ -521,8 +591,8 @@ class prop:
 
     ####### Deduction steps: LSUB and RSUB ##############################################################
     # In these deduction steps, a line of the proof gets substituted into according to an equality.     #
-    #   -eqline: the line which contains the equation to be applied.                                    #
-    #   -lineno: the line in which the substitution needs to take place.                                #
+    #   -eqline and eqlinref: coordinates of the statement contains the equation to be applied.                                    #
+    #   -linen and linref: coordinates of the statement which the substitution needs to take place.                                #
     #   -instanct: the list of positions where the substitution should take place.                      #
     ##################################################################################################### 
     def lsub(self,eqline=-1,lineno=-1,instance=[],eqlinref=-1,linref=-1):
