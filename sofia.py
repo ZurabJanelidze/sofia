@@ -45,8 +45,26 @@ if platform == "win32":
 # Each line of the proof is added by an instruction referring to valid deduction rules.   #
 # If there were mistakes made in the proof, the output will list those.                   #
 ###########################################################################################
-def hello():
-    return True
+def help():
+    print(' ================')
+    print(' SOFiA (ver 2102021)')
+    print(' ================')
+    print(' General commands.')
+    print('  ■ Create new proposition: P=sofia.prop("Prop") will create a proposition named "Prop".')
+    print('  ■ Postulate: P.p("[X]") will turn a proposition into an axiom stating [X].')
+    print('  ■ Show: P.show() will print proposition P on the screen.')
+    print('  ■ Show history: P.showh() will print proposition building history for P.')
+    print(' ================')
+    print(' Proof building commands. For a given proposition P, the following proof building commands are available.')
+    print('  ■ Assumption: P.a("[X]") will assume [X].')
+    print('  ■ Restate: P.r([[1,1],[2,3]],["x"]) will combine the statements from line 1, position 1, and from line 2, position 3, in a single line. It will in addition rename the first free variable in each of these statements to "x".')
+    print('  ■ Recall: P.c(Prop) will recall a proposition (axiom/theorem) stored as Prop.')
+    print('  ■ Selfequate: P.e(2,1) will self-equate the statement at line 2, position 1.')
+    print('  ■ Synapsis: P.s() will step out from an assumption block.')
+    print('  ■ Apply: P.d(2,[[1,1],[1,2]],3) will apply an implication at line 2, position 3, to variables at line 1, position 1, and line 1, position 2.')
+    print('  ■ Left substitution: P.ls(1,2,[3,4],5,6) will substitute the left side of equality at line 1, position 5, in line 2, position 6, replacing occurences 3 and 4 of the right side of the equality.')
+    print('  ■ Right substitution: P.rs(1,2,[],5,6) will substitute the right side of equality at line 1, position 5, in line 2, position 6, replacing all occurences of the left side of the equality.')
+    print('  ■ Delete: P.x() will delete the last line of the proof.')
 
 class prop:
                     #############################################################
@@ -65,7 +83,7 @@ class prop:
     _ss=""          # Subscript symbol                                                      #
                     #########################################################################
     _or='?'             # Symbol for disjunction    #
-    _ep='End of proof.' # End proof symbol          #
+    _ep='QED'           # End proof symbol          #
                         #############################
     def __init__(self,name='Proposition',options=[]):
                                     #############################################################################################
@@ -82,14 +100,13 @@ class prop:
         self._rea=[]     # the sequence of explanations how each proof line was obtained
         self._assdep=[]  # the sequence of assumption depths for each proof line
         self._curlin=0   # the index of current line in a proof under construction (subtract one to input in the arrays above)
-        self._thm=-1
 
         # Error texts
         self._err1=' - inval. expr. at L'
         self._err2=' - inval. stat. at L'
         self._err3=' - inval. line ref. at L'
         self._err4=' - no input for synapsis at L'
-        self._err5=' - the proof must start with an assum. at L'
+        self._err5=' - illigal step for the first line of proof at L'
         self._err6=' - proof interrupted at line L'
         self._err7=' - ref. line is not logically accessible at L'
         self._err8=' - inval. final line'
@@ -108,10 +125,18 @@ class prop:
         self._err21=' - inval. position ref. at L'
         self._err22=' - cannot contextualize reserved variable at L'
         self._err23=' - cannot reserve a context variable at L'
+        self._err24=' - void proposition recalled at L'
 
+        # Auxiliary proof data
         self._err=[]     # List of errors in the proof (shown when the proof gets printed)
-    
         self._propsta=''           # Proposition statement 
+
+    def show(self):
+        self.QED()
+
+    def showh(self):
+        for h in self._err:
+            print(h)
 
     def getstatement(self):
         if self._proptype=='Axiom':
@@ -123,7 +148,12 @@ class prop:
             return self._propsta
         else:
             return self._lb+self._rb
-    
+    def t(self,name='Proposition'):
+        self._proptype='Theorem'
+        self._propsta=self._lb+self._rb
+    def p(self,line=''):
+        self._err.append('Postulated '+line)
+        A=self.postulate(line)
     def postulate(self,line=''):
         success=True
         self._proptype='Axiom'
@@ -134,44 +164,58 @@ class prop:
         if self._valexp(line)==False:
             line=self._lb+self._rb
             success=False
+            self._err.append(self._err1+str(self._curlin))
         elif self._valsta(line)==False:
             line=self._lb+self._rb
-            success=False 
+            success=False
+            self._err.append(self._err2+str(self._curlin)) 
         
         self._propsta=line
-        print('')
-        print('Axiom: '+self._nam+'.')
-        print(line)
-        if success!=True:
-            print('WARNING: axiom invalid.')           
+        self.show()          
         return line
-    
+    def x(self):
+        if self._curlin>0:
+            self._err.append('Deleted last line')
+            self._assdep.pop()
+            self._lin.pop()
+            self._rea.pop()
+            self._curlin=self._curlin-1
+            self.show()
+        else:
+            print('Cannot delete a line in the empty proof')
     ####### Deduction step: ASSUME ##################################################
     # An assumption can be any statement whatsoever.                                #
     # If a reserved variable is stated in the assumption, it will be renamed.       #                       
     #################################################################################
+    def a(self,assumption=''):
+        if self._proptype=='Theorem':            
+            self._err.append('Assumed: '+assumption)
+            A=self.assume(assumption)
+            self.show()
+        else:
+            print('Cannot prove an axiom.')
     def assume(self,assumption=''):
         if assumption=='':
             assumption=self._lb+self._rb
-
-        # Add reasoning for the line
-        self._rea.append('assumption') 
 
         # Determine assumption depth of the new line (increment by one)
         if self._curlin==0:
             self._assdep.append(1)
         else:
             self._assdep.append(self._assdep[self._curlin-1]+1)
+        
+        self._rea.append('assumption')
 
         # Update current line index
         self._curlin=self._curlin+1
 
         # Check if the assumption is a valid expression and a valid statement
         if self._valexp(assumption)==False:
-            self._err.append(self._err1+str(self._curlin))
+            assumption=self._lb+self._rb
+            self._err.append(self._err1+str(self._curlin))        
         elif self._valsta(assumption)==False:
-            self._err.append(self._err2+str(self._curlin))
-
+            assumption=self._lb+self._rb
+            self._err.append(self._err2+str(self._curlin)) 
         # Add line to the proof
         self._lin.append(self._revisestat(self._cont(self._curlin-1),self._noncont(self._curlin-1),assumption))
 
@@ -196,67 +240,76 @@ class prop:
     #   -ref: position of the statement to be restated on the given line.                           #
     #   -newvars: new variables to be used as a replacement of noncontextual reserved variables.    #
     #################################################################################################
+    def r(self,instance=[],newvars=[]):
+        if self._proptype=='Theorem': 
+            self._err.append('Restatement: '+str([instance,newvars]))
+            A=self.rest(instance,newvars)
+            self.show()
+        else:
+            print('Cannot prove an axiom.')
     def rest(self,instance=[],newvars=[]):
         # The following makes lineno argument optional - default value being current line
         new=''
         reason=''
+        alert=''
         for e in instance:
             if len(e)==2:
                 lineno=e[0]
                 ref=e[1]
                 if lineno==-1:
                     lineno=self._curlin
-                if lineno!=0:
-                    reason=reason+' '+str(lineno)    # Add reasoning for the line
-                # Check if the line reference is valid and return errors if not
                 if self._curlin==0:
                     self._err.append(self._err5+str(self._curlin+1))
                 elif lineno<0 or lineno>len(self._lin):
                     self._err.append(self._err3+str(self._curlin+1))
                 elif lineno!=0 and self._logdep(lineno-1,self._curlin-1)==False:
                     self._err.append(self._err7+str(self._curlin+1))    
-                # Add a line to the proof
-                if lineno>self._curlin or lineno==0:
-                    new=new+''
                 else:
-                    s=self._extractstat(self._lin[lineno-1])
-                    if ref<len(s)+1 and ref>0:
-                        newline=s[ref-1]
-                    elif ref!=-1:
-                        ref=-1
-                        new=new+''                
+                    if lineno!=0:
+                        reason=reason+' '+str(lineno)    # Add reasoning for the line
+                    if lineno>self._curlin or lineno==0:
+                        new=new+''
                     else:
-                        newline=self._lin[lineno-1]
-                    if newvars!=[]:
-                        nlcontvars=self._statcontext(newline)
-                        contextvars=self._cont(self._curlin)
-                        nlvars=self._vars(newline)
-                        noncontnewvars=[]
-                        for x in newvars:
-                            if x not in contextvars and x not in nlvars:
-                                noncontnewvars.append(x)
-                        if len(noncontnewvars)!=len(newvars):
-                            self._err.append(self._err23+str(self._curlin+1))
-                        nlreplvars=[]
-                        for i in range(0,len(nlvars)):
-                            if nlvars[i] not in contextvars and nlvars[i] not in nlcontvars:
-                                nlreplvars.append(nlvars[i])
-                        for i in range(0,len(nlreplvars)):
-                            if i<len(newvars):
-                                newline=newline.replace(self._lb+nlreplvars[i]+self._rb,self._lb+newvars[i]+self._rb)
-                            else:
-                                i=len(nlreplvars)
-                    new=new+newline                    
+                        s=self._extractstat(self._lin[lineno-1])
+                        if ref<len(s)+1 and ref>0:
+                            newline=s[ref-1]
+                        elif ref!=-1:
+                            ref=-1
+                            new=new+''                
+                        else:
+                            newline=self._lin[lineno-1]
+                        if newvars!=[]:
+                            nlcontvars=self._statcontext(newline)
+                            contextvars=self._cont(self._curlin)
+                            nlvars=self._vars(newline)
+                            noncontnewvars=[]
+                            for x in newvars:
+                                if x not in contextvars and x not in nlvars:
+                                    noncontnewvars.append(x)
+                            if len(noncontnewvars)!=len(newvars):
+                                self._err.append(self._err23+str(self._curlin+1))
+                            nlreplvars=[]
+                            for i in range(0,len(nlvars)):
+                                if nlvars[i] not in contextvars and nlvars[i] not in nlcontvars:
+                                    nlreplvars.append(nlvars[i])
+                            for i in range(0,len(nlreplvars)):
+                                if i<len(newvars):
+                                    newline=newline.replace(self._lb+nlreplvars[i]+self._rb,self._lb+newvars[i]+self._rb)
+                                else:
+                                    i=len(nlreplvars)
+                        new=new+newline                    
         # Set assumption depth of the new line   
         if self._curlin==0:
             self._assdep.append(0)
         else:
             self._assdep.append(self._assdep[self._curlin-1])
         if reason=='':
-            self._rea.append('empty formula stated')
+            self._rea.append('restatement (void)')
             new=self._lb+self._rb
         else:
             self._rea.append('restatement (see lines'+reason+')')    # Add reasoning for the line
+        if new=='':
+            new=elf._lb+self._rb
         self._lin.append(new)
         self._curlin=self._curlin+1
         # Return new line index
@@ -331,21 +384,30 @@ class prop:
     ####### Deduction step: RECALL ##################################################
     # This is the deduction step of recalling existing axioms or proved theorems.   #
     #################################################################################
-    def recall(self,pro):
+    def c(self,pro=''):
+        if self._proptype=='Theorem': 
+            if type(pro)==prop:
+                self._err.append('Recalled '+pro._nam+': '+pro._propsta)
+            else:
+                self._err.append('Recalled '+pro)
+            A=self.recall(pro)
+            self.show()
+        else:
+            print('Cannot prove an axiom.')
+
+    def recall(self,pro=''):
         # Set assumption depth of the new line   
         if self._curlin==0:
             self._assdep.append(0)
         else:
             self._assdep.append(self._assdep[self._curlin-1])
-        if self._curlin==0:
-            self._err.append(self._err5+str(self._curlin+1))
 
         # Add a line to the proof
         if type(pro)==prop:
             self._rea.append('recalling '+pro._nam)    # Add reasoning for the line 
             self._lin.append(self._revisestat([],self._noncont(self._curlin),self._resolve([self._statfromformulas(self._cont(self._curlin)),pro.getstatement()],[])[1]))
         else:
-            self._rea.append('recalling a proposition') 
+            self._rea.append('recall (void)') 
             self._lin.append(self._lb+self._rb)
             self._err.append(self._err18+str(self._curlin+1))
 
@@ -358,23 +420,17 @@ class prop:
     # In this deduction step a line is equated to itself.                    #
     #   - lineno and ref: position of the statement to be equated to itself  #
     ##########################################################################
+    def e(self,lineno=-1,ref=-1):
+        if self._proptype=='Theorem': 
+            self._err.append('Selfequate '+str([lineno,ref]))
+            A=self.selfequate(lineno,ref)
+            self.show()
+        else:
+            print('Cannot prove an axiom.')
     def selfequate(self,lineno=-1,ref=-1):
         # The following makes lineno argument optional - default value being current line
         if lineno==-1:
-            lineno=self._curlin
-        # The following makes position reference optional
-        if ref==-1:
-            ref=1
-            self._rea.append('self-equate L'+str(lineno))    # Add reasoning for the line
-        else:
-            self._rea.append('self-equate from L'+str(lineno)+'('+str(ref)+')')    # Add reasoning for the line
-        # Check if the line reference is valid and return errors if not
-        if self._curlin==0:
-            self._err.append(self._err5+str(self._curlin+1))
-        elif lineno<1 or lineno>len(self._lin):
-            self._err.append(self._err3+str(self._curlin+1))
-        elif self._logdep(lineno-1,self._curlin-1)==False:
-            self._err.append(self._err7+str(self._curlin+1))    
+            lineno=self._curlin    
 
         # Set assumption depth of the new line   
         if self._curlin==0:
@@ -385,16 +441,32 @@ class prop:
         # Update current line index
         self._curlin=self._curlin+1     
 
-        # Add a line to the proof
-        if lineno>self._curlin-1 or lineno<1:
-            self._lin.append(self._lb+self._rb)
+        if lineno<1 or lineno>len(self._lin):
+            self._lin.append(self._lb+self._lb+self._rb+self._eq+self._lb+self._rb+self._rb)
+            self._rea.append('self-equate (void)')    # Add reasoning for the line
+            self._err.append(self._err3+str(self._curlin))
+        elif self._logdep(lineno-1,self._curlin-2)==False:
+            self._lin.append(self._lb+self._lb+self._rb+self._eq+self._lb+self._rb+self._rb)
+            self._rea.append('self-equate (void)')    # Add reasoning for the line
+            self._err.append(self._err7+str(self._curlin))
         else:
-            s=self._extractstat(self._lin[lineno-1])
-            if ref<len(s)+1 and 0<ref:
-                self._lin.append(self._lb+s[ref-1]+self._eq+s[ref-1]+self._rb)
+            # Check if the line reference is valid and return errors if not
+            if ref==-1:
+                ref=1
+            # Add a line to the proof
+            if lineno>self._curlin-1 or lineno<1:
+                self._lin.append(self._lb+self._lb+self._rb+self._eq+self._lb+self._rb+self._rb)
+                self._rea.append('self-equate (void)')    # Add reasoning for the line
+                self._err.append(self._err3+str(self._curlin))
             else:
-                self._err.append(self._err21+str(self._curlin))
-                self._lin.append(self._lb+self._rb)
+                s=self._extractstat(self._lin[lineno-1])
+                if ref<len(s)+1 and 0<ref:
+                    self._rea.append('self-equate from L'+str(lineno)+'('+str(ref)+')')    # Add reasoning for the line
+                    self._lin.append(self._lb+s[ref-1]+self._eq+s[ref-1]+self._rb)
+                else:
+                    self._err.append(self._err21+str(self._curlin))
+                    self._rea.append('self-equate (void)')
+                    self._lin.append(self._lb+self._lb+self._rb+self._eq+self._lb+self._rb+self._rb)
         # Return new line index
         return self._curlin    
     ####### Deduction step: SYNAPSIS ############################################################
@@ -405,53 +477,66 @@ class prop:
     # During synapsis, block-specific context variables will be appended to the inference.      #
     # This only happens when the block-specific context variable appears inside the last line.  #  
     #############################################################################################
+    def s(self):
+        if self._proptype=='Theorem': 
+            self._err.append('Synapsis')
+            A=self.synapsis()
+            self.show()
+        else:
+            print('Cannot prove an axiom.')
+
     def synapsis(self):
-        # Identify errors and assign assumption depth
         if len(self._assdep)==0:
             self._assdep.append(0)
             self._err.append(self._err4+str(self._curlin+1))
+            self._lin.append(self._lb+self._lb+self._rb+self._im+self._lb+self._rb+self._rb)
+            self._rea.append('synapsis (void)')
+            self._curlin=self._curlin+1
         elif self._assdep[self._curlin-1]==0:
             self._assdep.append(0)
-            self._err.append(self._err4+str(self._curlin+1))       
-        elif self._assdep[self._curlin-1]==1:
-            self._assdep.append(0)
-            self._thm=self._curlin
-            #self._err.append(self._err6+str(self._curlin+1))            
+            self._err.append(self._err4+str(self._curlin+1))         
+            self._lin.append(self._lb+self._lb+self._rb+self._im+self._lb+self._rb+self._rb)
+            self._rea.append('synapsis (void)')
+            self._curlin=self._curlin+1
         else:
             self._assdep.append(self._assdep[self._curlin-1]-1)
-
-        # Determine the starting line of the assumption block
-        i=self._curlin-1
-        while self._assdep[i]>self._assdep[self._curlin-1]-1 and i>0:
-            i=i-1
-        if i==0 and self._assdep[0]>self._assdep[self._curlin-1]-1:
-            i=i-1
-        lineno=i+1
-        blockcont=self._cont(self._curlin-1,lineno-1)
-        outblockcontext=self._cont(lineno)
-        context=self._cont(self._curlin-1)
-        asscontext=self._statcontext(self._lin[lineno])
-        # Add reasoning for the line
-        self._rea.append('synapsis (L'+str(lineno+1)+'-'+str(self._curlin)+')')
-
-        # Update current line index
-        self._curlin=self._curlin+1
-
-        # Add the proof line
-        if self._curlin>1:
-            conclusion=self._lin[self._curlin-2]
-            conclusionvars=self._vars(conclusion)
-            conclusioncontext=self._statcontext(conclusion)
-            for x in conclusionvars:
-                if x in blockcont and x not in outblockcontext and x not in conclusioncontext and x not in asscontext:
-                    conclusion=self._lb+x+self._rb+conclusion
-            if self._scoped==True:
-                newstats=self._resolve([self._lin[lineno],conclusion],context)
-                self._lin.append(self._lb+newstats[0]+self._im+newstats[1]+self._rb)
+            # Determine the starting line of the assumption block
+            i=self._curlin-1
+            while self._assdep[i]>self._assdep[self._curlin-1]-1 and i>0:
+                i=i-1
+            if i==0 and self._assdep[0]>self._assdep[self._curlin-1]-1:
+                i=i-1
+            lineno=i+1
+            if lineno<1:
+                blockcont=self._cont(self._curlin-1,0)
             else:
-                self._lin.append(self._cleanupline(self._lb+self._lin[lineno]+self._im+conclusion+self._rb,self._curlin))                
-        else:
-            self._lin.append(self._lb+self._rb)
+                blockcont=self._cont(self._curlin-1,lineno-1)
+            outblockcontext=self._cont(lineno)
+            context=self._cont(self._curlin-1)
+            asscontext=self._statcontext(self._lin[lineno])
+            # Add reasoning for the line
+            self._rea.append('synapsis (L'+str(lineno+1)+'-'+str(self._curlin)+')')
+
+            # Update current line index
+            self._curlin=self._curlin+1
+
+            # Add the proof line
+            if self._curlin>1:
+                conclusion=self._lin[self._curlin-2]
+                conclusionvars=self._vars(conclusion)
+                conclusioncontext=self._statcontext(conclusion)
+                addedvars=[]
+                for x in conclusionvars:
+                    if x in blockcont and x not in outblockcontext and x not in conclusioncontext and x not in asscontext and x not in addedvars:
+                        addedvars.append(x)
+                        conclusion=self._lb+x+self._rb+conclusion
+                if self._scoped==True:
+                    newstats=self._resolve([self._lin[lineno],conclusion],context)
+                    self._lin.append(self._lb+newstats[0]+self._im+newstats[1]+self._rb)
+                else:
+                    self._lin.append(self._lb+self._lin[lineno]+self._im+conclusion+self._rb)                
+            else:
+                self._lin.append(self._lb+self._lb+self._rb+self._im+self._lb+self._rb+self._rb)
 
         # Return new line index
         return self._curlin
@@ -462,15 +547,25 @@ class prop:
     #   -linerefs: indicates substitution to be made during implication         #
     #   -ref: position of the formula in the given line                         #
     ############################################################################# 
+    def d(self,lineno=-1,linerefs=[],ref=-1):
+        if self._proptype=='Theorem': 
+            self._err.append('Application: '+str([lineno,linerefs,ref]))
+            A=self.apply(lineno,linerefs,ref)
+            self.show()
+        else:
+            print('Cannot prove an axiom.')
     def apply(self,lineno=-1,linerefs=[],ref=-1):
         if lineno==-1:
             lineno=self._curlin
         if ref==-1:
             ref=1
+        majorerror=False
         # Check if the line is logically accessible (provided line reference is correct)
         if self._curlin==0:
+            majorerror=True
             self._err.append(self._err5+str(self._curlin+1))
         elif self._logdep(lineno-1,self._curlin-1)==False:
+            majorerror=True
             self._err.append(self._err7+str(self._curlin+1))                                   
         # Determine assumption depth of the new line (same as previous line)   
         if self._curlin==0:
@@ -518,7 +613,7 @@ class prop:
         # Check if line reference is correct and accordingly, add a line to the proof
         if lineno>self._curlin-1 or lineno<1:
             self._err.append(self._err3+str(self._curlin))
-            self._lin.append(self._lb+self._rb)
+            majorerror=True
         else:
             w=self._extractstat(self._lin[lineno-1])
             if ref>len(w):
@@ -529,7 +624,7 @@ class prop:
             statements=self._decomposestat(l)[1]
             if constants!=['',self._im]:
                 self._err.append(self._err11+str(self._curlin))
-                self._lin.append(self._lb+self._rb)
+                majorerror=True
             else:
                 #statements=self._resolve(statements,self._statcontext(statements[0])+contextvars)
                 l=self._lb+statements[0]+self._im+statements[1]+self._rb
@@ -575,7 +670,7 @@ class prop:
                     r=self._revisestat(self._cont(self._curlin-1),self._noncont(self._curlin-1),inferfrom[len(inferfrom)-1])
                     self._lin.append(r)
                 else:
-                    self._lin.append(self._cleanupline(l,self._curlin))
+                    majorerror=True
                     self._err.append(self._err10+str(self._curlin))
         # Add reasoning for the line
         substitution=''
@@ -585,7 +680,11 @@ class prop:
                 substitution=substitution+','+linerefstats[i]
         if substitution!='':
             substitution=' (with concretization '+substitution+')'
-        self._rea.append('application of L'+str(lineno)+'.'+str(ref)+substitution)
+        if majorerror:
+            self._rea.append('application (void)')
+            self._lin.append(self._lb+self._rb)
+        else:
+            self._rea.append('application of L'+str(lineno)+'.'+str(ref)+substitution)
         # Return new line index
         return self._curlin   
 
@@ -595,11 +694,18 @@ class prop:
     #   -linen and linref: coordinates of the statement which the substitution needs to take place.                                #
     #   -instanct: the list of positions where the substitution should take place.                      #
     ##################################################################################################### 
+    def ls(self,eqline=-1,lineno=-1,instance=[],eqlinref=-1,linref=-1):
+        if self._proptype=='Theorem': 
+            self._err.append('Left substitution: '+str([eqline,lineno,instance,eqlinref,linref]))
+            A=self.lsub(eqline,lineno,instance,eqlinref,linref)
+            self.show()
+        else:
+            print('Cannot prove an axiom.')
     def lsub(self,eqline=-1,lineno=-1,instance=[],eqlinref=-1,linref=-1):
         if eqline==-1:
-            eqline=self._curlin-1
+            eqline=self._curlin
         if lineno==-1:
-            lineno=self._curlin
+            lineno=self._curlin-1
         if eqlinref==-1:
             eqlinref=1
         if linref==-1:
@@ -608,8 +714,6 @@ class prop:
         line=self._lb+self._rb
         eqLHS=''
         eqRHS=''
-        # Add reasoning for the line
-        self._rea.append('left substitution, L'+str(eqline)+'('+str(eqlinref)+') in L'+str(lineno)+'('+str(linref)+')') 
 
         if eqline>0 and eqline<len(self._lin)+1:
             s=self._extractstat(self._lin[eqline-1])
@@ -630,24 +734,32 @@ class prop:
             noequality=True
             self._err.append(self._err17+str(self._curlin+1))
         if self._logdep(eqline-1,self._curlin-1)==False:
+            noequality=True
             self._err.append(self._err7+str(self._curlin+1))
         
         if self._curlin==0:
+            noequality=True
             self._err.append(self._err5+str(self._curlin+1))
         if lineno<1 or lineno>len(self._lin):
+            noequality=True
             self._err.append(self._err3+str(self._curlin+1))
         else:
             t=self._extractstat(self._lin[lineno-1])
-            if linref<len(t)+1 and 0<linref:
+            if linref<len(t)+1 and 0<linref and noequality==False:
                 line=t[linref-1]
             else:
                 line=self._lb+self._rb
             if eqline<1 or eqline>len(self._lin):
+                noequality=True
+                line=self._lb+self._rb
                 self._err.append(self._err3+str(self._curlin+1))
         if self._logdep(lineno-1,self._curlin-1)==False:
+            noequality=True
+            line=self._lb+self._rb
             self._err.append(self._err7+str(self._curlin+1))
 
         if noequality==False:
+            self._rea.append('left substitution, L'+str(eqline)+'('+str(eqlinref)+') in L'+str(lineno)+'('+str(linref)+')') 
             if len(instance)>0:
                 k=0
                 for n in range(0,len(instance)):
@@ -655,25 +767,33 @@ class prop:
                     k=k-1
             else:
                 line=line.replace(eqRHS,eqLHS)
-        
+        else:
+            self._rea.append('left substitution (void)')
+
         # Determine assumption depth of the new line (same as previous line)   
         if self._curlin==0:
             self._assdep.append(0)
         else:
             self._assdep.append(self._assdep[self._curlin-1])
         
-        self._lin.append(self._cleanupline(line,self._curlin))                
+        self._lin.append(line)                
 
         # Update current line index
         self._curlin=self._curlin+1
         # Return new line index
         return self._curlin
-
+    def rs(self,eqline=-1,lineno=-1,instance=[],eqlinref=-1,linref=-1):
+        if self._proptype=='Theorem': 
+            self._err.append('Right substitution: '+str([eqline,lineno,instance,eqlinref,linref]))
+            A=self.rsub(eqline,lineno,instance,eqlinref,linref)
+            self.show()
+        else:
+            print('Cannot prove an axiom.')
     def rsub(self,eqline=-1,lineno=-1,instance=[],eqlinref=-1,linref=-1):
         if eqline==-1:
-            eqline=self._curlin-1
+            eqline=self._curlin
         if lineno==-1:
-            lineno=self._curlin
+            lineno=self._curlin-1
         if eqlinref==-1:
             eqlinref=1
         if linref==-1:
@@ -683,7 +803,6 @@ class prop:
         eqLHS=''
         eqRHS=''
         # Add reasoning for the line
-        self._rea.append('right substitution, L'+str(eqline)+'('+str(eqlinref)+') in L'+str(lineno)+'('+str(linref)+')') 
 
         if eqline>0 and eqline<len(self._lin)+1:
             s=self._extractstat(self._lin[eqline-1])
@@ -704,24 +823,32 @@ class prop:
             noequality=True
             self._err.append(self._err17+str(self._curlin+1))
         if self._logdep(eqline-1,self._curlin-1)==False:
+            noequality=True
             self._err.append(self._err7+str(self._curlin+1))
         
         if self._curlin==0:
+            noequality=True
             self._err.append(self._err5+str(self._curlin+1))
         if lineno<1 or lineno>len(self._lin):
+            noequality=True
             self._err.append(self._err3+str(self._curlin+1))
         else:
             t=self._extractstat(self._lin[lineno-1])
-            if linref<len(t)+1 and 0<linref:
+            if linref<len(t)+1 and 0<linref and noequality==False:
                 line=t[linref-1]
             else:
                 line=self._lb+self._rb
             if eqline<1 or eqline>len(self._lin):
+                noequality=True
+                line=self._lb+self._rb
                 self._err.append(self._err3+str(self._curlin+1))
         if self._logdep(lineno-1,self._curlin-1)==False:
+            noequality=True
+            line=self._lb+self._rb
             self._err.append(self._err7+str(self._curlin+1))
 
         if noequality==False:
+            self._rea.append('right substitution, L'+str(eqline)+'('+str(eqlinref)+') in L'+str(lineno)+'('+str(linref)+')') 
             if len(instance)>0:
                 k=0
                 for n in range(0,len(instance)):
@@ -729,6 +856,9 @@ class prop:
                     k=k-1
             else:
                 line=line.replace(eqRHS,eqLHS)
+        else:
+            self._rea.append('right substitution (void)') 
+
         
         # Determine assumption depth of the new line (same as previous line)   
         if self._curlin==0:
@@ -736,7 +866,7 @@ class prop:
         else:
             self._assdep.append(self._assdep[self._curlin-1])
         
-        self._lin.append(self._cleanupline(line,self._curlin))
+        self._lin.append(line)
         # Update current line index
         self._curlin=self._curlin+1
         # Return new line index
@@ -746,75 +876,84 @@ class prop:
     # This indicates completion of the proof. The proof is then displayed along with the list of errors   #
     ####################################################################################################### 
     def QED(self):
-        self._proptype='Theorem'
-        print('')
-        print('Theorem: '+self._nam+'.')
-        if self._thm!=-1:
-            self._propsta=self._lin[self._thm]
-            print(self._propsta)      
-        else:
-            self._propsta=self._lb+self._rb
+        if self._proptype=='Axiom':
+            print('')
+            print('Axiom: '+self._nam+'.')
             print(self._propsta)
-        print(self._prfnam+'.')
-        for i in range(0,len(self._lin)):
-            prefix=''
-            if i==0:
-                if self._assdep[i]==0:
-                    prefix=''
-                else:
-                    if len(self._assdep)>1:
-                        if self._assdep[1]==0:
-                            prefix=self._sal
-                        else:
-                            prefix=self._al
-                    else:
-                        prefix=self._al
-            elif i==len(self._lin)-1:
-                if self._assdep[i]!=1:
-                    if self._assdep[i]==0:
-                        prefix=''
-                    elif self._assdep[i-1]<self._assdep[i]:
-                        prefix=self._al
-                    elif self._assdep[i-1]==self._assdep[i]:
-                        prefix=self._il
-                    else:
-                        prefix=self._cl
-                else:
-                    prefix=self._cl
-            else:        
-                if self._assdep[i]==0:
-                    prefix=''
-                elif self._assdep[i-1]<self._assdep[i] and self._assdep[i+1]>self._assdep[i]-1:
-                    prefix=self._al
-                elif self._assdep[i-1]<self._assdep[i] and self._assdep[i+1]<self._assdep[i]:
-                    prefix=self._sal
-                elif self._assdep[i-1]==self._assdep[i] and self._assdep[i+1]==self._assdep[i]:
-                    prefix=self._il
-                elif self._assdep[i-1]>self._assdep[i]-1 and self._assdep[i+1]<self._assdep[i]:
-                    prefix=self._cl
-                elif self._assdep[i-1]>self._assdep[i]-1 and self._assdep[i+1]>self._assdep[i]-1:
-                    prefix=self._il
-            for j in range(0,self._assdep[i]-1):
-                prefix=self._il+prefix
-            context='none'
-            if self._scoped==True:                
-                c=self._cont(i)
+        elif self._proptype=='Theorem':
+            print('')
+            print('Theorem: '+self._nam+'.')
+            if self._curlin<1:
+                print('Empty theorem.')
+                return False
             else:
-                c=self._noncont(i)
-            if len(c)>0:
-                context=c[0] 
-            for j in range(1,len(c)):
-                context=context+','+c[j]
-            line=self._displaystat(self._lin[i]) 
-            print(' '+prefix+''+line+' /L'+str(i+1)+': '+self._rea[i]+'.')
-        if len(self._err)==0:
-            print(self._ep)
-            return True
-        else:
-            print('Proof incomplete. The following mistakes found:')
-            for e in self._err:
-                print(e)
-            return False
+                if self._assdep[self._curlin-1]==0:
+                    context=self._cont(self._curlin-1)
+                    conclusion=self._lin[self._curlin-1]
+                    if self._curlin>1:
+                        conclusionvars=self._vars(conclusion)
+                        conclusioncontext=self._statcontext(conclusion)
+                        addedvars=[]
+                        for x in conclusionvars:
+                            if x in context and x not in conclusioncontext and x not in addedvars:
+                                addedvars.append(x)
+                                conclusion=self._lb+x+self._rb+conclusion
+                    self._propsta=conclusion
+                    print(self._propsta)      
+                else:
+                    self._propsta=self._lb+self._rb
+                    print(self._propsta)
+                print(self._prfnam+'.')
+                for i in range(0,len(self._lin)):
+                    prefix=''
+                    if i==0:
+                        if self._assdep[i]==0:
+                            prefix=''
+                        else:
+                            if len(self._assdep)>1:
+                                if self._assdep[1]==0:
+                                    prefix=self._sal
+                                else:
+                                    prefix=self._al
+                            else:
+                                prefix=self._al
+                    elif i==len(self._lin)-1:
+                        if self._assdep[i]==0:
+                            prefix=''
+                        elif self._assdep[i-1]<self._assdep[i]:
+                            prefix=self._al
+                        elif self._assdep[i-1]==self._assdep[i]:
+                            prefix=self._il
+                        else:
+                            prefix=self._cl
+                    else:        
+                        if self._assdep[i]==0:
+                            prefix=''
+                        elif self._assdep[i-1]<self._assdep[i] and self._assdep[i+1]>self._assdep[i]-1:
+                            prefix=self._al
+                        elif self._assdep[i-1]<self._assdep[i] and self._assdep[i+1]<self._assdep[i]:
+                            prefix=self._sal
+                        elif self._assdep[i-1]==self._assdep[i] and self._assdep[i+1]==self._assdep[i]:
+                            prefix=self._il
+                        elif self._assdep[i-1]>self._assdep[i]-1 and self._assdep[i+1]<self._assdep[i]:
+                            prefix=self._cl
+                        elif self._assdep[i-1]>self._assdep[i]-1 and self._assdep[i+1]>self._assdep[i]-1:
+                            prefix=self._il
+                    for j in range(0,self._assdep[i]-1):
+                        prefix=self._il+prefix
+                    context='none'
+                    if self._scoped==True:                
+                        c=self._cont(i)
+                    else:
+                        c=self._noncont(i)
+                    if len(c)>0:
+                        context=c[0] 
+                    for j in range(1,len(c)):
+                        context=context+','+c[j]
+                    line=self._displaystat(self._lin[i]) 
+                    print(' '+prefix+''+line+' /L'+str(i+1)+': '+self._rea[i]+'.')
+                print(self._ep)
+                return True
 
     def subin(self,form,variables,context):
         formvars=self._vars(form)
