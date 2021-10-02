@@ -1,5 +1,5 @@
 # sofia
-Python implementation of the SOFiA proof system
+Python implementation of the SOFiA proof system.
 
 This is still work in progress. Currently the software implements all deduction rules of SOFiA, but more flexibility in the deduction rules needs to be added.
 
