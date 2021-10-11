@@ -32,11 +32,6 @@ if platform == "win32":
 #                                                                                           #
 #############################################################################################                                                                                           #
 
-
-
-
-
-
 ########################################################################################### 
 # THE MAIN MODULE (proposition class)                                                     #
 # An object of this class enables the user to build a theorem or an axiom.                #
@@ -47,13 +42,14 @@ if platform == "win32":
 ###########################################################################################
 def help():
     print(' ================')
-    print(' SOFiA (ver 2102021)')
+    print(' SOFiA (ver 1010021)')
     print(' ================')
     print(' General commands.')
     print('  ■ Create new proposition: P=sofia.prop("Prop") will create a proposition named "Prop".')
     print('  ■ Postulate: P.p("[X]") will turn a proposition into an axiom stating [X].')
     print('  ■ Show: P.show() will print proposition P on the screen.')
     print('  ■ Show history: P.showh() will print proposition building history for P.')
+    print('  ■ Axiom builders: A=sofia.nat() and A=sofia.bool() define axioms builders. Call A.help() to see how to use them.')
     print(' ================')
     print(' Proof building commands. For a given proposition P, the following proof building commands are available.')
     print('  ■ Assumption: P.a("[X]") will assume [X].')
@@ -81,8 +77,8 @@ class prop:
     _pr="'"         # Prime - variable suffix                                               #
     _pm=3           # Upper bound for number of primes automatically appended to a variable #
     _ss=""          # Subscript symbol                                                      #
-                    #########################################################################
-    _or='?'             # Symbol for disjunction    #
+    _f="!"          # False constant
+    _v='?'          # Symbol for disjunction    #
     _ep='QED'           # End proof symbol          #
                         #############################
     def __init__(self,name='Proposition',options=[]):
@@ -252,6 +248,10 @@ class prop:
         new=''
         reason=''
         alert=''
+        if self._curlin==0:
+            self._assdep.append(0)
+        else:
+            self._assdep.append(self._assdep[self._curlin-1])
         for e in instance:
             if len(e)==2:
                 lineno=e[0]
@@ -299,10 +299,6 @@ class prop:
                                     i=len(nlreplvars)
                         new=new+newline                    
         # Set assumption depth of the new line   
-        if self._curlin==0:
-            self._assdep.append(0)
-        else:
-            self._assdep.append(self._assdep[self._curlin-1])
         if reason=='':
             self._rea.append('restatement (void)')
             new=self._lb+self._rb
@@ -720,7 +716,7 @@ class prop:
             if eqlinref<len(s)+1 and 0<eqlinref:
                 D=self._decomposestat(s[eqlinref-1])
             else:
-                D=[]
+                D=[[]]
             if D[0]!=['',self._eq]:
                 noequality=True
                 self._err.append(self._err17+str(self._curlin+1))
@@ -809,7 +805,7 @@ class prop:
             if eqlinref<len(s)+1 and 0<eqlinref:
                 D=self._decomposestat(s[eqlinref-1])
             else:
-                D=[]
+                D=[[]]
             if D[0]!=['',self._eq]:
                 noequality=True
                 self._err.append(self._err17+str(self._curlin+1))
@@ -1347,3 +1343,79 @@ class prop:
             line=self._lin[i].replace(self._rb+self._lb, self._rb+' '+self._lb)
             line=line.replace(self._im,' => ')
             print(' '+prefix+''+line+' /L'+str(i+1)+': '+self._rea[i]+'.')
+
+class nat:
+    _s='1+'
+    _n='nat'
+    _z='0'
+    _f='!'
+    def __init__(self,successor='1+',natnumbertypename='nat',falsename='!'):
+        self._s=successor
+        self._n=natnumbertypename
+        self._f=falsename
+
+    def z(self):
+        I=prop("Arithmetic: Zero")
+        zerogiven=I._lb+self._z+I._lb+I._rb+I._rb
+        zeronumber=I._lb+I._lb+self._z+I._lb+I._rb+I._rb+self._n+I._rb
+        zeroissuc=I._lb+I._lb+self._z+I._lb+I._rb+I._rb+I._eq+I._lb+self._s+I._lb+'n'+I._rb+I._rb+I._rb
+        zeronotsuccesssor=I._lb+I._lb+'n'+I._rb+I._lb+I._lb+'n'+I._rb+self._n+I._rb+zeroissuc+I._im+I._lb+self._f+I._lb+I._rb+I._rb+I._rb
+        I.postulate(zerogiven+zeronumber+zeronotsuccesssor)
+        return I
+
+    def s(self):
+        I=prop("Arithmetic: Successor")
+        nnumber=I._lb+'n'+I._rb+I._lb+I._lb+'n'+I._rb+self._n+I._rb
+        sucnumber=I._lb+self._s+I._lb+'n'+I._rb+I._rb+I._lb+I._lb+self._s+I._lb+'n'+I._rb+I._rb+self._n+I._rb
+        mnumber=I._lb+'m'+I._rb+I._lb+I._lb+'m'+I._rb+self._n+I._rb
+        sucinj=I._lb+mnumber+I._lb+I._lb+self._s+I._lb+'n'+I._rb+I._rb+I._eq+I._lb+self._s+I._lb+'m'+I._rb+I._rb+I._rb+I._im+I._lb+I._lb+'n'+I._rb+I._eq+I._lb+'m'+I._rb+I._rb+I._rb
+        I.postulate(I._lb+nnumber+I._im+sucnumber+sucinj+I._rb)
+        return I
+
+    def i(self,stat='',context='',var='n'):
+        I=prop("Arithmetic: Induction on "+var+" in "+context+stat)
+        var=I._lb+var+I._rb
+        nextstat=stat.replace(var,I._lb+self._s+var+I._rb)
+        z=stat.replace(var,I._lb+self._z+I._lb+I._rb+I._rb)
+        i=I._lb+var+I._lb+var+self._n+I._rb+stat+I._im+nextstat+I._rb
+        c=I._lb+var+I._lb+var+self._n+I._rb+I._im+stat+I._rb
+        I.postulate(I._lb+context+z+i+I._im+c+I._rb)
+        return I
+
+    def help(self):
+        print(' ================')
+        print(' Arithmetic Axiom Builder for SOFiA (ver 1010021)')
+        print(' ================')
+        print(' Arithmetic axiom building commands. For a given arithmetic axiom builder N, the following axiom building commands are available.')
+        print('  ■ Number zero: N.z() will return the axiom (prop object) stating properties of the number zero.')
+        print('  ■ Successor: N.s() will return the axiom (prop object) stating properties of the successor function.')
+        print('  ■ Induction: N.i("[blabla[n][m][k]]","[m][k]","[n]") will return the axiom (prop object) stating that for all [m][k], the statement [blabla[n][m][k]]] can be proved by induction on [n].')
+
+class bool:
+    _em=False
+    _f='!'
+    _v='?'
+    def __init__(self,lawofexcludedmiddle=False,falsesym='!',orsym='?'):
+        self._em=lawofexcludedmiddle
+        self._f=falsesym
+        self._v=orsym
+
+    def f(self,stat='',context=''):
+        I=prop("Boolean: False Universality")
+        if stat=='':
+            stat=I._lb+I._rb
+        I.postulate(I._lb+context+I._lb+self._f+I._lb+I._rb+I._rb+I._im+stat+I._rb)
+        return I
+    def n(self,stat='',context=''):
+        I=prop("Boolean: Double Negation")
+        if stat=='':
+            stat=I._lb+I._rb
+        I.postulate(I._lb+context+I._lb+I._lb+stat+I._im+I._lb+self._f+I._lb+I._rb+I._rb+I._rb+I._im+I._lb+self._f+I._lb+I._rb+I._rb+I._rb+I._im+stat+I._rb)
+        return I
+    def help(self):
+        print(' ================')
+        print(' Boolean Axiom Builder for SOFiA (ver 1010021)')
+        print(' ================')
+        print(' Boolean axiom building commands. For a given Boolean axiom builder B, the following axiom building commands are available.')
+        print('  ■ False universality: B.f("[blabla[X][Y]]","[X][Y]") will return the axiom "[[X][Y][![]]:[blabla[X][Y]]]" as a prop object.')
+        print('  ■ Double negation: B.n("[blabla[X][Y]]","[X][Y]") will return the axiom "[[X][Y][[[blabla[X][Y]]:[![]]]:[![]]]]:[blabla[X][Y]]]".')
