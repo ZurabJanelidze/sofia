@@ -127,12 +127,18 @@ class prop:
         self._err=[]     # List of errors in the proof (shown when the proof gets printed)
         self._propsta=''           # Proposition statement 
 
-    def show(self):
-        self.QED()
+    def show(self,onlyreturn=False):
+        if onlyreturn==False:
+            self.QED()
+        else:
+            return self.QED()
 
-    def showh(self):
-        for h in self._err:
-            print(h)
+    def showh(self,onlyreturn=False):
+        if onlyreturn==False:
+            for h in self._err:
+                print(h)
+        else:
+            return self._err
 
     def getstatement(self):
         if self._proptype=='Axiom':
@@ -140,7 +146,7 @@ class prop:
             print('Axiom: '+self._nam+'.')
             print(self._propsta)
             return self._propsta
-        elif self.QED():
+        elif len(self.QED())>0:
             return self._propsta
         else:
             return self._lb+self._rb
@@ -872,15 +878,22 @@ class prop:
     # This indicates completion of the proof. The proof is then displayed along with the list of errors   #
     ####################################################################################################### 
     def QED(self):
+        p=[] 
         if self._proptype=='Axiom':
             print('')
+            p.append('')
             print('Axiom: '+self._nam+'.')
+            p.append('Axiom: '+self._nam+'.')
             print(self._propsta)
+            p.append(self._propsta)
         elif self._proptype=='Theorem':
             print('')
+            p.append('')
             print('Theorem: '+self._nam+'.')
+            p.append('Theorem: '+self._nam+'.')
             if self._curlin<1:
                 print('Empty theorem.')
+                p.append('Empty theorem.')
                 return False
             else:
                 if self._assdep[self._curlin-1]==0:
@@ -895,11 +908,14 @@ class prop:
                                 addedvars.append(x)
                                 conclusion=self._lb+x+self._rb+conclusion
                     self._propsta=conclusion
-                    print(self._propsta)      
+                    print(self._propsta) 
+                    p.append(self._propsta)     
                 else:
                     self._propsta=self._lb+self._rb
                     print(self._propsta)
+                    p.append(self._propsta)
                 print(self._prfnam+'.')
+                p.append(self._prfnam+'.')
                 for i in range(0,len(self._lin)):
                     prefix=''
                     if i==0:
@@ -948,8 +964,10 @@ class prop:
                         context=context+','+c[j]
                     line=self._displaystat(self._lin[i]) 
                     print(' '+prefix+''+line+' /L'+str(i+1)+': '+self._rea[i]+'.')
+                    p.append(' '+prefix+''+line+' /L'+str(i+1)+': '+self._rea[i]+'.')
                 print(self._ep)
-                return True
+                p.append(self._ep)
+                return p
 
     def subin(self,form,variables,context):
         formvars=self._vars(form)
