@@ -1362,6 +1362,26 @@ class prop:
             line=line.replace(self._im,' => ')
             print(' '+prefix+''+line+' /L'+str(i+1)+': '+self._rea[i]+'.')
 
+class set:
+    _s='set'
+    _i='in'
+    _t='|'
+    def __init__(self,setname='set',el='in'):
+        self._s=setname
+        self._i=el
+    def c(self,stat='',x='x',context=''):
+        C=prop("Sets: Restricted Comprehension")
+        x=C._lb+x+C._rb
+        X='X'
+        C._renamevar(X,C._vars(stat+context+x))
+        X=C._lb+X+C._rb
+        y='y'
+        C._renamevar(y,C._vars(stat+context+x))
+        y=C._lb+y+C._rb
+        s=C._lb+x+self._i+X+self._t+stat+C._rb
+        C.postulate(C._lb+context+X+C._lb+X+self._s+C._rb+C._im+C._lb+s+C._lb+s+self._s+C._rb+C._lb+C._lb+y+C._im+C._lb+C._lb+y+self._i+s+C._rb+C._eq+stat.replace(x,y)+C._rb+C._rb+C._rb+C._rb+C._rb)
+        print(C._lb+context+X+C._lb+X+self._s+C._rb+C._im+C._lb+s+C._lb+s+self._s+C._rb+C._lb+C._lb+y+C._im+C._lb+C._lb+y+self._i+s+C._rb+C._eq+stat.replace(x,y)+C._rb+C._rb+C._rb+C._rb+C._rb)
+        return C
 class nat:
     _s='1+'
     _n='nat'
