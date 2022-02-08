@@ -1,3 +1,4 @@
+# Revision of 8 Feb 2022
 # The following lines are to enable deletion of a line in a windows command prompt
 import sys
 from sys import platform
@@ -732,6 +733,7 @@ class prop:
             else:
                 eqLHS=D[1][0]
                 eqRHS=D[1][1]
+
         else:
             noequality=True
             self._err.append(self._err17+str(self._curlin+1))
@@ -760,7 +762,17 @@ class prop:
             line=self._lb+self._rb
             self._err.append(self._err7+str(self._curlin+1))
 
+        # Determine assumption depth of the new line (same as previous line)   
+        if self._curlin==0:
+            self._assdep.append(0)
+        else:
+            self._assdep.append(self._assdep[self._curlin-1])
+
         if noequality==False:
+            res=self._resolve([eqLHS,eqRHS,line],self._cont(self._curlin))
+            eqLHS=res[0]
+            eqRHS=res[1]
+            line=res[2]
             self._rea.append('left substitution, L'+str(eqline)+'('+str(eqlinref)+') in L'+str(lineno)+'('+str(linref)+')') 
             if len(instance)>0:
                 k=0
@@ -771,12 +783,6 @@ class prop:
                 line=line.replace(eqRHS,eqLHS)
         else:
             self._rea.append('left substitution (void)')
-
-        # Determine assumption depth of the new line (same as previous line)   
-        if self._curlin==0:
-            self._assdep.append(0)
-        else:
-            self._assdep.append(self._assdep[self._curlin-1])
         
         self._lin.append(line)                
 
@@ -849,7 +855,17 @@ class prop:
             line=self._lb+self._rb
             self._err.append(self._err7+str(self._curlin+1))
 
+        # Determine assumption depth of the new line (same as previous line)   
+        if self._curlin==0:
+            self._assdep.append(0)
+        else:
+            self._assdep.append(self._assdep[self._curlin-1])
+            
         if noequality==False:
+            res=self._resolve([eqLHS,eqRHS,line],self._cont(self._curlin))
+            eqLHS=res[0]
+            eqRHS=res[1]
+            line=res[2]
             self._rea.append('right substitution, L'+str(eqline)+'('+str(eqlinref)+') in L'+str(lineno)+'('+str(linref)+')') 
             if len(instance)>0:
                 k=0
@@ -860,13 +876,6 @@ class prop:
                 line=line.replace(eqRHS,eqLHS)
         else:
             self._rea.append('right substitution (void)') 
-
-        
-        # Determine assumption depth of the new line (same as previous line)   
-        if self._curlin==0:
-            self._assdep.append(0)
-        else:
-            self._assdep.append(self._assdep[self._curlin-1])
         
         self._lin.append(line)
         # Update current line index
@@ -1183,15 +1192,17 @@ class prop:
     def _resolve(self,statements,context):   # Eliminates variable conflict in an array of statements, based on a context
         output=[statements[0]]
         for i in range(1,len(statements)):
-            premise=output[len(output)-1]
             conclusion=statements[i]
             conclusionvars=self._vars(conclusion)
-            premisevars=self._vars(premise)
+            premisevars=[]
+            for j in range(0,len(output)):
+                premisevars=premisevars+self._vars(output[j])
             for x in conclusionvars:
                 if x in premisevars and x not in context:
                     renamex=self._renamevar(x,context+conclusionvars+premisevars)
                     conclusion=conclusion.replace(self._lb+x+self._rb,self._lb+renamex+self._rb)
             output.append(conclusion)
+        print(output)
         return output
     
     def _renamevar(self,varname,notvars):    # Renames a variable name that does not appear in the list
@@ -1214,7 +1225,6 @@ class prop:
     def _cont(self,linenumber,fromline=1):  # Returns the variable context of a line in the proof
         output=[]
         for i in range(fromline-1,linenumber):
-            #print(self._vars(self._lin[i]))
             if len(self._vars(self._lin[i]))>0:
                 if self._logdep(i,linenumber)==True:
                     s=self._extractstat(self._lin[i])
