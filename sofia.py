@@ -43,7 +43,7 @@ if platform == "win32":
 ###########################################################################################
 def help():
     print(' ================')
-    print(' SOFiA (ver 1010021)')
+    print(' SOFiA (ver 01080221)')
     print(' ================')
     print(' General commands.')
     print('  ■ Create new proposition: P=sofia.prop("Prop") will create a proposition named "Prop".')
