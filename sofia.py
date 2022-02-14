@@ -1,4 +1,5 @@
-# Revision of 8 Feb 2022
+# -*- coding: utf-8 -*-
+# Revision of 14 Feb 2022
 # The following lines are to enable deletion of a line in a windows command prompt
 import sys
 from sys import platform
