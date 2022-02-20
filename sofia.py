@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# Revision of 14 Feb 2022
+# Revision of 8 Feb 2022
 # The following lines are to enable deletion of a line in a windows command prompt
 import sys
 from sys import platform
@@ -7,6 +6,9 @@ if platform == "win32":
     import ctypes
     kernel32 = ctypes.windll.kernel32
     kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+
+showing = True
+
 #############
 # Glossary: #
 #############################################################################################
@@ -44,7 +46,7 @@ if platform == "win32":
 ###########################################################################################
 def help():
     print(' ================')
-    print(' SOFiA (ver 01080221)')
+    print(' SOFiA (ver 01200221)')
     print(' ================')
     print(' General commands.')
     print('  ■ Create new proposition: P=sofia.prop("Prop") will create a proposition named "Prop".')
@@ -52,6 +54,7 @@ def help():
     print('  ■ Show: P.show() will print proposition P on the screen.')
     print('  ■ Show history: P.showh() will print proposition building history for P.')
     print('  ■ Axiom builders: A=sofia.nat() and A=sofia.bool() define axioms builders. Call A.help() to see how to use them.')
+    print('  ■ Mode: include sofia.showing=False in the code if you do not want to print a proposition every time it is updated.')
     print(' ================')
     print(' Proof building commands. For a given proposition P, the following proof building commands are available.')
     print('  ■ Assumption: P.a("[X]") will assume [X].')
@@ -63,6 +66,9 @@ def help():
     print('  ■ Left substitution: P.ls(1,2,[3,4],5,6) will substitute the left side of equality at line 1, position 5, in line 2, position 6, replacing occurences 3 and 4 of the right side of the equality.')
     print('  ■ Right substitution: P.rs(1,2,[],5,6) will substitute the right side of equality at line 1, position 5, in line 2, position 6, replacing all occurences of the left side of the equality.')
     print('  ■ Delete: P.x() will delete the last line of the proof.')
+
+def notshowing():
+    showing=False
 
 class prop:
                     #############################################################
@@ -81,8 +87,8 @@ class prop:
     _ss=""          # Subscript symbol                                                      #
     _f="!"          # False constant
     _v='?'          # Symbol for disjunction    #
-    _ep='QED'           # End proof symbol          #
-                        #############################
+    _ep='QED'       # End proof symbol          #
+                    #############################
     def __init__(self,name='Proposition',options=[]):
                                     #############################################################################################
         self._scoped=False          # This detemines the way variables are treated:                                             #                       
@@ -129,11 +135,8 @@ class prop:
         self._err=[]     # List of errors in the proof (shown when the proof gets printed)
         self._propsta=''           # Proposition statement 
 
-    def show(self,onlyreturn=False):
-        if onlyreturn==False:
-            self.QED()
-        else:
-            return self.QED()
+    def show(self):
+        self.QED()
 
     def showh(self,onlyreturn=False):
         if onlyreturn==False:
@@ -144,11 +147,11 @@ class prop:
 
     def getstatement(self):
         if self._proptype=='Axiom':
-            print('')
-            print('Axiom: '+self._nam+'.')
-            print(self._propsta)
+            #print('')
+            #print('Axiom: '+self._nam+'.')
+            #print(self._propsta)
             return self._propsta
-        elif len(self.QED())>0:
+        elif len(self.QED(False))>0:
             return self._propsta
         else:
             return self._lb+self._rb
@@ -157,9 +160,8 @@ class prop:
         self._propsta=self._lb+self._rb
     def p(self,line=''):
         self._err.append('Postulated '+line)
-        A=self.postulate(line)
+        self.postulate(line)
     def postulate(self,line=''):
-        success=True
         self._proptype='Axiom'
         if line=='':
             line=self._lb+self._rb
@@ -167,15 +169,14 @@ class prop:
         # Check if the line is a valid expression and a valid statement
         if self._valexp(line)==False:
             line=self._lb+self._rb
-            success=False
             self._err.append(self._err1+str(self._curlin))
         elif self._valsta(line)==False:
             line=self._lb+self._rb
-            success=False
             self._err.append(self._err2+str(self._curlin)) 
         
         self._propsta=line
-        self.show()          
+        if showing:
+            self.show()          
         return line
     def x(self):
         if self._curlin>0:
@@ -184,7 +185,8 @@ class prop:
             self._lin.pop()
             self._rea.pop()
             self._curlin=self._curlin-1
-            self.show()
+            if showing:
+                self.show()
         else:
             print('Cannot delete a line in the empty proof')
     ####### Deduction step: ASSUME ##################################################
@@ -194,8 +196,9 @@ class prop:
     def a(self,assumption=''):
         if self._proptype=='Theorem':            
             self._err.append('Assumed: '+assumption)
-            A=self.assume(assumption)
-            self.show()
+            self.assume(assumption)
+            if showing:
+                self.show()
         else:
             print('Cannot prove an axiom.')
     def assume(self,assumption=''):
@@ -247,15 +250,15 @@ class prop:
     def r(self,instance=[],newvars=[]):
         if self._proptype=='Theorem': 
             self._err.append('Restatement: '+str([instance,newvars]))
-            A=self.rest(instance,newvars)
-            self.show()
+            self.rest(instance,newvars)
+            if showing:
+                self.show()
         else:
             print('Cannot prove an axiom.')
     def rest(self,instance=[],newvars=[]):
         # The following makes lineno argument optional - default value being current line
         new=''
         reason=''
-        alert=''
         if self._curlin==0:
             self._assdep.append(0)
         else:
@@ -289,7 +292,7 @@ class prop:
                         if newvars!=[]:
                             nlcontvars=self._statcontext(newline)
                             contextvars=self._cont(self._curlin)
-                            nlvars=self._vars(newline)
+                            nlvars=list(dict.fromkeys(self._vars(newline)))
                             noncontnewvars=[]
                             for x in newvars:
                                 if x not in contextvars and x not in nlvars:
@@ -313,7 +316,7 @@ class prop:
         else:
             self._rea.append('restatement (see lines'+reason+')')    # Add reasoning for the line
         if new=='':
-            new=elf._lb+self._rb
+            new=self._lb+self._rb
         self._lin.append(new)
         self._curlin=self._curlin+1
         # Return new line index
@@ -394,8 +397,9 @@ class prop:
                 self._err.append('Recalled '+pro._nam+': '+pro._propsta)
             else:
                 self._err.append('Recalled '+pro)
-            A=self.recall(pro)
-            self.show()
+            self.recall(pro)
+            if showing:
+                self.show()
         else:
             print('Cannot prove an axiom.')
 
@@ -427,8 +431,9 @@ class prop:
     def e(self,lineno=-1,ref=-1):
         if self._proptype=='Theorem': 
             self._err.append('Selfequate '+str([lineno,ref]))
-            A=self.selfequate(lineno,ref)
-            self.show()
+            self.selfequate(lineno,ref)
+            if showing:
+                self.show()
         else:
             print('Cannot prove an axiom.')
     def selfequate(self,lineno=-1,ref=-1):
@@ -484,8 +489,9 @@ class prop:
     def s(self):
         if self._proptype=='Theorem': 
             self._err.append('Synapsis')
-            A=self.synapsis()
-            self.show()
+            self.synapsis()
+            if showing:
+                self.show()
         else:
             print('Cannot prove an axiom.')
 
@@ -554,8 +560,9 @@ class prop:
     def d(self,lineno=-1,linerefs=[],ref=-1):
         if self._proptype=='Theorem': 
             self._err.append('Application: '+str([lineno,linerefs,ref]))
-            A=self.apply(lineno,linerefs,ref)
-            self.show()
+            self.apply(lineno,linerefs,ref)
+            if showing:
+                self.show()
         else:
             print('Cannot prove an axiom.')
     def apply(self,lineno=-1,linerefs=[],ref=-1):
@@ -578,7 +585,7 @@ class prop:
             self._assdep.append(self._assdep[self._curlin-1])
         # Check if concretizing variables belong to the context
         contextvars=self._cont(self._curlin)
-        allvars=self._noncont(self._curlin)
+        self._noncont(self._curlin)
         linerefstats=[]
         for i in range(0,len(linerefs)):
             if type(linerefs[i])==list:
@@ -701,8 +708,9 @@ class prop:
     def ls(self,eqline=-1,lineno=-1,instance=[],eqlinref=-1,linref=-1):
         if self._proptype=='Theorem': 
             self._err.append('Left substitution: '+str([eqline,lineno,instance,eqlinref,linref]))
-            A=self.lsub(eqline,lineno,instance,eqlinref,linref)
-            self.show()
+            self.lsub(eqline,lineno,instance,eqlinref,linref)
+            if showing:
+                self.show()
         else:
             print('Cannot prove an axiom.')
     def lsub(self,eqline=-1,lineno=-1,instance=[],eqlinref=-1,linref=-1):
@@ -794,8 +802,9 @@ class prop:
     def rs(self,eqline=-1,lineno=-1,instance=[],eqlinref=-1,linref=-1):
         if self._proptype=='Theorem': 
             self._err.append('Right substitution: '+str([eqline,lineno,instance,eqlinref,linref]))
-            A=self.rsub(eqline,lineno,instance,eqlinref,linref)
-            self.show()
+            self.rsub(eqline,lineno,instance,eqlinref,linref)
+            if showing:
+                self.show()
         else:
             print('Cannot prove an axiom.')
     def rsub(self,eqline=-1,lineno=-1,instance=[],eqlinref=-1,linref=-1):
@@ -887,22 +896,28 @@ class prop:
     ####### Deduction step: QED ###########################################################################
     # This indicates completion of the proof. The proof is then displayed along with the list of errors   #
     ####################################################################################################### 
-    def QED(self):
+    def QED(self,showornot=True):
         p=[] 
         if self._proptype=='Axiom':
-            print('')
+            if showornot:
+                print('')
             p.append('')
-            print('Axiom: '+self._nam+'.')
+            if showornot:
+                print('Axiom: '+self._nam+'.')
             p.append('Axiom: '+self._nam+'.')
-            print(self._propsta)
+            if showornot:
+                print(self._propsta)
             p.append(self._propsta)
         elif self._proptype=='Theorem':
-            print('')
+            if showornot:
+                print('')
             p.append('')
-            print('Theorem: '+self._nam+'.')
+            if showornot:
+                print('Theorem: '+self._nam+'.')
             p.append('Theorem: '+self._nam+'.')
             if self._curlin<1:
-                print('Empty theorem.')
+                if showornot:
+                    print('Empty theorem.')
                 p.append('Empty theorem.')
                 return False
             else:
@@ -918,13 +933,16 @@ class prop:
                                 addedvars.append(x)
                                 conclusion=self._lb+x+self._rb+conclusion
                     self._propsta=conclusion
-                    print(self._propsta) 
+                    if showornot:
+                        print(self._propsta) 
                     p.append(self._propsta)     
                 else:
                     self._propsta=self._lb+self._rb
-                    print(self._propsta)
+                    if showornot:
+                        print(self._propsta)
                     p.append(self._propsta)
-                print(self._prfnam+'.')
+                if showornot:
+                    print(self._prfnam+'.')
                 p.append(self._prfnam+'.')
                 for i in range(0,len(self._lin)):
                     prefix=''
@@ -973,9 +991,11 @@ class prop:
                     for j in range(1,len(c)):
                         context=context+','+c[j]
                     line=self._displaystat(self._lin[i]) 
-                    print(' '+prefix+''+line+' /L'+str(i+1)+': '+self._rea[i]+'.')
+                    if showornot:
+                        print(' '+prefix+''+line+' /L'+str(i+1)+': '+self._rea[i]+'.')
                     p.append(' '+prefix+''+line+' /L'+str(i+1)+': '+self._rea[i]+'.')
-                print(self._ep)
+                if showornot:
+                    print(self._ep)
                 p.append(self._ep)
                 return p
 
@@ -1203,7 +1223,7 @@ class prop:
                     renamex=self._renamevar(x,context+conclusionvars+premisevars)
                     conclusion=conclusion.replace(self._lb+x+self._rb,self._lb+renamex+self._rb)
             output.append(conclusion)
-        print(output)
+        #print(output)
         return output
     
     def _renamevar(self,varname,notvars):    # Renames a variable name that does not appear in the list
