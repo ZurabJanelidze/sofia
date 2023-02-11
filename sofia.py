@@ -128,7 +128,7 @@ class prop:
         self._err20=' - disjunction unconfirmed at L'
         self._err21=' - inval. position ref. at L'
         self._err22=' - cannot contextualize reserved variable at L'
-        self._err23=' - cannot reserve a context variable at L'
+        self._err23=' - cannot reserve a variable at L'
         self._err24=' - void proposition recalled at L'
 
         # Auxiliary proof data
@@ -299,16 +299,17 @@ class prop:
                                     noncontnewvars.append(x)
                             if len(noncontnewvars)!=len(newvars):
                                 self._err.append(self._err23+str(self._curlin+1))
-                            nlreplvars=[]
-                            for i in range(0,len(nlvars)):
-                                if nlvars[i] not in contextvars and nlvars[i] not in nlcontvars:
-                                    nlreplvars.append(nlvars[i])
-                            for i in range(0,len(nlreplvars)):
-                                if i<len(newvars):
-                                    newline=newline.replace(self._lb+nlreplvars[i]+self._rb,self._lb+newvars[i]+self._rb)
-                                else:
-                                    i=len(nlreplvars)
-                        new=new+newline                    
+                            else:
+                              nlreplvars=[]
+                              for i in range(0,len(nlvars)):
+                                  if nlvars[i] not in contextvars and nlvars[i] not in nlcontvars:
+                                      nlreplvars.append(nlvars[i])
+                              for i in range(0,len(nlreplvars)):
+                                  if i<len(newvars):
+                                      newline=newline.replace(self._lb+nlreplvars[i]+self._rb,self._lb+newvars[i]+self._rb)
+                                  else:
+                                      i=len(nlreplvars)
+                            new=new+newline                    
         # Set assumption depth of the new line   
         if reason=='':
             self._rea.append('restatement (void)')
