@@ -1,4 +1,4 @@
-# Revision of 8 Feb 2022
+# Revision of 14 Feb 2023
 # The following lines are to enable deletion of a line in a windows command prompt
 import sys
 from sys import platform
@@ -46,7 +46,7 @@ showing = True
 ###########################################################################################
 def help():
     print(' ================')
-    print(' SOFiA (ver 01200221)')
+    print(' SOFiA (ver 14022023)')
     print(' ================')
     print(' General commands.')
     print('  ■ Create new proposition: P=sofia.prop("Prop") will create a proposition named "Prop".')
