@@ -248,6 +248,8 @@ class prop:
     #   -newvars: new variables to be used as a replacement of noncontextual reserved variables.    #
     #################################################################################################
     def r(self,instance=[],newvars=[]):
+        # The following ensures that different variables are not assigned the same name in a restate
+        newvars = list(dict.fromkeys(newvars))
         if self._proptype=='Theorem': 
             self._err.append('Restatement: '+str([instance,newvars]))
             self.rest(instance,newvars)
